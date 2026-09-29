@@ -32,7 +32,7 @@ html
 
   async function loadMessages() {
     const { data, error } = await db
-      .from('public.messages')
+      .from('messages')
       .select('*')
       .order('created_at', { ascending: true });
 
@@ -57,7 +57,7 @@ html
 
     if (!name || !text) return;
 
-    const { error } = await db.from('public.messages').insert({ name, text });
+    const { error } = await db.from('messages').insert({ name, text });
     if (error) console.error(error);
 
     document.getElementById('text').value = '';
