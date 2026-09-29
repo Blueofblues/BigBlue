@@ -1,0 +1,265 @@
+<!-- force redeploy -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>BigBlue Lounge</title>
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #0d1117;
+      color: #e6edf3;
+      font-family: Arial, sans-serif;
+    }
+
+    #topbar {
+      background: #0d1117;
+      padding: 15px;
+      text-align: center;
+      font-size: 24px;
+      color: #58a6ff;
+      border-bottom: 1px solid #30363d;
+    }
+
+    #lounge {
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #161b22;
+      border-radius: 10px;
+      box-shadow: 0 0 25px rgba(88,166,255,0.25);
+    }
+
+    #online {
+      text-align: center;
+      margin-bottom: 10px;
+      font-size: 14px;
+      color: #8b949e;
+    }
+
+    #messages {
+      margin-bottom: 20px;
+      padding: 10px;
+      background: #0d1117;
+      border-radius: 8px;
+      max-height: 300px;
+      overflow-y: auto;
+      border: 1px solid #30363d;
+    }
+
+    .message {
+      padding: 8px 10px;
+      margin-bottom: 8px;
+      background: #21262d;
+      border-radius: 6px;
+      max-width: 80%;
+    }
+
+    .me {
+      background: #238636;
+      margin-left: auto;
+      text-align: right;
+    }
+
+    .them {
+      background: #21262d;
+      margin-right: auto;
+      text-align: left;
+    }
+
+    .msg-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      opacity: 0.8;
+    }
+
+    .timestamp {
+      font-size: 12px;
+      color: #8b949e;
+    }
+
+    .msg-text {
+      margin-top: 4px;
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    input, textarea {
+      width: 100%;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #30363d;
+      background: #0d1117;
+      color: #e6edf3;
+    }
+
+    button {
+      padding: 10px;
+      background: #238636;
+      border: none;
+      border-radius: 6px;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #2ea043;
+    }
+  </style>
+</head>
+
+<body>
+  <header id="topbar">BigBlue Lounge</header>
+
+  <section id="lounge">
+    <div id="online">You are online</div>
+
+    <div id="messages"></div>
+
+    <form id="chat-form">
+      <input id="name" placeholder="Name" required />
+      <textarea id="text" placeholder="Share something..." required></textarea>
+      <button type="submit">Send</button>
+    </form>
+  </section>
+
+<script type="module">
+  import { createClient } from 'https://esm.sh/@supabase/supabase-js';
+
+  const SUPABASE_URL = "https://cyfmseuawavhrptwjmvo.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_sopmXz-3KNEkqzCsOPZwIw_EgMLc3CJ";
+
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+  const messagesBox = document.getElementById('messages');
+
+  // 1. Anonymous sign-in
+  let { data: authData } = await db.auth.getUser();
+
+  if (!authData?.user) {
+    const { data: anonData, error: anonError } = await db.auth.signInAnonymously();
+    if (anonError) console.error("Anonymous sign-in failed:", anonError);
+    authData = anonData;
+  }
+
+  const user = authData.user;
+
+  // 2. Load or create profile
+  async function loadProfile() {
+    const { data: authData } = await db.auth.getUser();
+    const user = authData.user;
+
+    const { data: profile, error } = await db
+      .from("profiles")
+      .select("*")
+      .eq("user_id", user.id)
+      .single();
+
+    if (error && error.code === "PGRST116") {
+      await db.from("profiles").insert({
+        user_id: user.id,
+        name: null,
+        avatar_url: null,
+        is_admin: false
+      });
+
+      return loadProfile();
+    }
+
+    return profile;
+  }
+
+  const profile = await loadProfile();
+
+  // 3. Lock name if already set
+  if (profile.name) {
+    const nameInput = document.getElementById("name");
+    nameInput.value = profile.name;
+    nameInput.disabled = true;
+  }
+
+  const colorMap = {
+    Jason: '#58a6ff',
+    Jack: '#2ea043',
+    Test2: '#f78166'
+  };
+
+  // 4. Load messages
+  async function loadMessages() {
+    const { data, error } = await db
+      .from('messages')
+      .select('*')
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    messagesBox.innerHTML = '';
+
+    data.forEach(m => {
+      const div = document.createElement('div');
+
+      div.className = (m.user_id === profile.user_id) ? 'message me' : 'message them';
+
+      const userColor = colorMap[m.name] || '#e6edf3';
+      div.style.borderLeft = `4px solid ${userColor}`;
+
+      div.innerHTML = `
+        <div class="msg-header">
+          <strong>${m.name}</strong>
+          <span class="timestamp">${new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+        </div>
+        <div class="msg-text">${m.text}</div>
+      `;
+
+      messagesBox.appendChild(div);
+    });
+
+    messagesBox.scrollTop = messagesBox.scrollHeight;
+  }
+
+  // 5. Send message
+  document.getElementById('chat-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const nameInput = document.getElementById('name');
+    const name = nameInput.value.trim();
+    const text = document.getElementById('text').value.trim();
+
+    if (!name || !text) return;
+
+    // Save name to profile if not already set
+    if (!profile.name) {
+      await db.from("profiles").update({ name }).eq("user_id", profile.user_id);
+      nameInput.disabled = true;
+    }
+
+    await db.from('messages').insert({
+      user_id: profile.user_id,
+      name,
+      text
+    });
+
+    document.getElementById('text').value = '';
+  });
+
+  // 6. Initial load
+  loadMessages();
+
+  // 7. Realtime listener
+  db.channel('messages')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, loadMessages)
+    .subscribe();
+</script>
+
+</body>
+</html>
