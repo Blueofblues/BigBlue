@@ -1,11 +1,52 @@
-<section id="lounge">
-  <h2>BigBlue Lounge</h2>
+<script type="module">
+  import { createClient } from 'https://esm.sh/@supabase/supabase-js';
 
-  <div id="messages"></div>
+  // Your Poose project uses publishable keys, not anon keys
+  const SUPABASE_URL = "https://cyfmseuawavhrptwjmvo.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_sopmXz-3KNEkqzCsOPZwIw_EgMLc3CJ";
 
-  <form id="chat-form">
-    <input id="name" placeholder="Name" required />
-    <textarea id="text" placeholder="Share something..." required></textarea>
-    <button type="submit">Send</button>
-  </form>
-</section>
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  const messagesBox = document.getElementById('messages');
+
+  async function loadMessages() {
+    const { data, error } = await db
+      .from('messages')
+      .select('*')
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    messagesBox.innerHTML = '';
+    data.forEach(m => {
+      const div = document.createElement('div');
+      div.className = 'message';
+      div.innerHTML = `<strong>${m.name}</strong>: ${m.text}`;
+      messagesBox.appendChild(div);
+    });
+  }
+
+  document.getElementById('chat-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = document.getElementById('name').value.trim();
+    const text = document.getElementById('text').value.trim();
+
+    if (!name || !text) return;
+
+    const { error } = await db.from('messages').insert({ name, text });
+    if (error) console.error(error);
+
+    document.getElementById('text').value = '';
+  });
+
+  // Initial load
+  loadMessages();
+
+  // Realtime listener (Poose still supports this)
+  db.channel('messages')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, loadMessages)
+    .subscribe();
+</script>
