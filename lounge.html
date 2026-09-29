@@ -146,12 +146,58 @@
   const db = createClient(SUPABASE_URL, SUPABASE_KEY);
   const messagesBox = document.getElementById('messages');
 
+  // 1. Anonymous sign-in
+  let { data: authData } = await db.auth.getUser();
+
+  if (!authData?.user) {
+    const { data: anonData, error: anonError } = await db.auth.signInAnonymously();
+    if (anonError) console.error("Anonymous sign-in failed:", anonError);
+    authData = anonData;
+  }
+
+  const user = authData.user;
+
+  // 2. Load or create profile
+  async function loadProfile() {
+    const { data: authData } = await db.auth.getUser();
+    const user = authData.user;
+
+    const { data: profile, error } = await db
+      .from("profiles")
+      .select("*")
+      .eq("user_id", user.id)
+      .single();
+
+    if (error && error.code === "PGRST116") {
+      await db.from("profiles").insert({
+        user_id: user.id,
+        name: null,
+        avatar_url: null,
+        is_admin: false
+      });
+
+      return loadProfile();
+    }
+
+    return profile;
+  }
+
+  const profile = await loadProfile();
+
+  // 3. Lock name if already set
+  if (profile.name) {
+    const nameInput = document.getElementById("name");
+    nameInput.value = profile.name;
+    nameInput.disabled = true;
+  }
+
   const colorMap = {
     Jason: '#58a6ff',
     Jack: '#2ea043',
     Test2: '#f78166'
   };
 
+  // 4. Load messages
   async function loadMessages() {
     const { data, error } = await db
       .from('messages')
@@ -165,16 +211,12 @@
 
     messagesBox.innerHTML = '';
 
-    const currentName = document.getElementById('name').value.trim();
+    const currentName = profile.name || document.getElementById('name').value.trim();
 
     data.forEach(m => {
       const div = document.createElement('div');
 
-      if (m.name === currentName) {
-        div.className = 'message me';
-      } else {
-        div.className = 'message them';
-      }
+      div.className = (m.user_id === profile.user_id) ? 'message me' : 'message them';
 
       const userColor = colorMap[m.name] || '#e6edf3';
       div.style.borderLeft = `4px solid ${userColor}`;
@@ -193,21 +235,35 @@
     messagesBox.scrollTop = messagesBox.scrollHeight;
   }
 
+  // 5. Send message
   document.getElementById('chat-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const name = document.getElementById('name').value.trim();
+
+    const nameInput = document.getElementById('name');
+    const name = nameInput.value.trim();
     const text = document.getElementById('text').value.trim();
 
     if (!name || !text) return;
 
-    const { error } = await db.from('messages').insert({ name, text });
-    if (error) console.error(error);
+    // Save name to profile if not already set
+    if (!profile.name) {
+      await db.from("profiles").update({ name }).eq("user_id", profile.user_id);
+      nameInput.disabled = true;
+    }
+
+    await db.from('messages').insert({
+      user_id: profile.user_id,
+      name,
+      text
+    });
 
     document.getElementById('text').value = '';
   });
 
+  // 6. Initial load
   loadMessages();
 
+  // 7. Realtime listener
   db.channel('messages')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, loadMessages)
     .subscribe();
