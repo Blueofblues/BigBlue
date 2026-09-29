@@ -1,79 +1,80 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <style>
-  body {
-    margin: 0;
-    padding: 0;
-    background: #0d1117;
-    color: #e6edf3;
-    font-family: Arial, sans-serif;
-  }
-
-  #lounge {
-    max-width: 600px;
-    margin: 40px auto;
-    padding: 20px;
-    background: #161b22;
-    border-radius: 10px;
-    box-shadow: 0 0 20px rgba(0,0,0,0.4);
-  }
-
-  h2 {
-    margin-top: 0;
-    text-align: center;
-    font-size: 28px;
-    color: #58a6ff;
-  }
-
-  #messages {
-    margin-bottom: 20px;
-    padding: 10px;
-    background: #0d1117;
-    border-radius: 8px;
-    max-height: 300px;
-    overflow-y: auto;
-    border: 1px solid #30363d;
-  }
-
-  .message {
-    padding: 8px 10px;
-    margin-bottom: 8px;
-    background: #21262d;
-    border-radius: 6px;
-  }
-
-  form {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  input, textarea {
-    width: 100%;
-    padding: 10px;
-    border-radius: 6px;
-    border: 1px solid #30363d;
-    background: #0d1117;
-    color: #e6edf3;
-  }
-
-  button {
-    padding: 10px;
-    background: #238636;
-    border: none;
-    border-radius: 6px;
-    color: white;
-    font-size: 16px;
-    cursor: pointer;
-  }
-
-  button:hover {
-    background: #2ea043;
-  }
-</style>
   <meta charset="UTF-8" />
   <title>BigBlue Lounge</title>
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #0d1117;
+      color: #e6edf3;
+      font-family: Arial, sans-serif;
+    }
+
+    #lounge {
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #161b22;
+      border-radius: 10px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.4);
+    }
+
+    h2 {
+      margin-top: 0;
+      text-align: center;
+      font-size: 28px;
+      color: #58a6ff;
+    }
+
+    #messages {
+      margin-bottom: 20px;
+      padding: 10px;
+      background: #0d1117;
+      border-radius: 8px;
+      max-height: 300px;
+      overflow-y: auto;
+      border: 1px solid #30363d;
+    }
+
+    .message {
+      padding: 8px 10px;
+      margin-bottom: 8px;
+      background: #21262d;
+      border-radius: 6px;
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    input, textarea {
+      width: 100%;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #30363d;
+      background: #0d1117;
+      color: #e6edf3;
+    }
+
+    button {
+      padding: 10px;
+      background: #238636;
+      border: none;
+      border-radius: 6px;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #2ea043;
+    }
+  </style>
 </head>
 
 <body>
@@ -88,56 +89,54 @@
       <button type="submit">Send</button>
     </form>
   </section>
-  
+
   <script type="module">
-  import { createClient } from 'https://esm.sh/@supabase/supabase-js';
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js';
 
-  // Your Poose project uses publishable keys, not anon keys
-  const SUPABASE_URL = "https://cyfmseuawavhrptwjmvo.supabase.co";
-  const SUPABASE_KEY = "sb_publishable_sopmXz-3KNEkqzCsOPZwIw_EgMLc3CJ";
+    const SUPABASE_URL = "https://cyfmseuawavhrptwjmvo.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_sopmXz-3KNEkqzCsOPZwIw_EgMLc3CJ";
 
-  const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+    const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+    const messagesBox = document.getElementById('messages');
 
-  const messagesBox = document.getElementById('messages');
+    async function loadMessages() {
+      const { data, error } = await db
+        .from('messages')
+        .select('*')
+        .order('created_at', { ascending: true });
 
-  async function loadMessages() {
-    const { data, error } = await db
-      .from('messages')
-      .select('*')
-      .order('created_at', { ascending: true });
+      if (error) {
+        console.error(error);
+        return;
+      }
 
-    if (error) {
-      console.error(error);
-      return;
+      messagesBox.innerHTML = '';
+      data.forEach(m => {
+        const div = document.createElement('div');
+        div.className = 'message';
+        div.innerHTML = `<strong>${m.name}</strong>: ${m.text}`;
+        messagesBox.appendChild(div);
+      });
     }
 
-    messagesBox.innerHTML = '';
-    data.forEach(m => {
-      const div = document.createElement('div');
-      div.className = 'message';
-      div.innerHTML = `<strong>${m.name}</strong>: ${m.text}`;
-      messagesBox.appendChild(div);
+    document.getElementById('chat-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('name').value.trim();
+      const text = document.getElementById('text').value.trim();
+
+      if (!name || !text) return;
+
+      const { error } = await db.from('messages').insert({ name, text });
+      if (error) console.error(error);
+
+      document.getElementById('text').value = '';
     });
-  }
 
-  document.getElementById('chat-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const name = document.getElementById('name').value.trim();
-    const text = document.getElementById('text').value.trim();
+    loadMessages();
 
-    if (!name || !text) return;
-
-    const { error } = await db.from('messages').insert({ name, text });
-    if (error) console.error(error);
-
-    document.getElementById('text').value = '';
-  });
-
-  // Initial load
-  loadMessages();
-
-  // Realtime listener (Poose still supports this)
-  db.channel('messages')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, loadMessages)
-    .subscribe();
-</script>
+    db.channel('messages')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, loadMessages)
+      .subscribe();
+  </script>
+</body>
+</html>
