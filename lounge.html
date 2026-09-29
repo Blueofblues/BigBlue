@@ -137,37 +137,6 @@
     </form>
   </section>
 
-<script type="module">
-  import { createClient } from 'https://esm.sh/@supabase/supabase-js';
-
-  const SUPABASE_URL = "https://cyfmseuawavhrptwjmvo.supabase.co";
-  const SUPABASE_KEY = "sb_publishable_sopmXz-3KNEkqzCsOPZwIw_EgMLc3CJ";
-
-  const db = createClient(SUPABASE_URL, SUPABASE_KEY);
-  const messagesBox = document.getElementById('messages');
-
-  // 1. Anonymous sign-in
-  let { data: authData } = await db.auth.getUser();
-
-  if (!authData?.user) {
-    const { data: anonData, error: anonError } = await db.auth.signInAnonymously();
-    if (anonError) console.error("Anonymous sign-in failed:", anonError);
-    authData = anonData;
-  }
-
-  const user = authData.user;
-
-  // 2. Load or create profile
-  async function loadProfile() {
-    const { data: authData } = await db.auth.getUser();
-    const user = authData.user;
-
-    const { data: profile, error } = await db
-      .from("profiles")
-      .select("*")
-      .eq("user_id", user.id)
-      .single();
-
     if (error && error.code === "PGRST116") {
       await db.from("profiles").insert({
         user_id: user.id,
@@ -268,3 +237,6 @@
     .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, loadMessages)
     .subscribe();
 </script>
+
+</body>
+</html>
