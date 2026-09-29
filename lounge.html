@@ -137,44 +137,78 @@
     </form>
   </section>
 
-  <script type="module">
-    import { createClient } from 'https://esm.sh/@supabase/supabase-js';
+<script type="module">
+  import { createClient } from 'https://esm.sh/@supabase/supabase-js';
 
-    const SUPABASE_URL = "https://cyfmseuawavhrptwjmvo.supabase.co";
-    const SUPABASE_KEY = "sb_publishable_sopmXz-3KNEkqzCsOPZwIw_EgMLc3CJ";
+  const SUPABASE_URL = "https://cyfmseuawavhrptwjmvo.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_sopmXz-3KNEkqzCsOPZwIw_EgMLc3CJ";
 
-    const db = createClient(SUPABASE_URL, SUPABASE_KEY);
-    const messagesBox = document.getElementById('messages');
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+  const messagesBox = document.getElementById('messages');
 
-    const colorMap = {
-      Jason: '#58a6ff',
-      Jack: '#2ea043',
-      Test2: '#f78166'
-    };
+  const colorMap = {
+    Jason: '#58a6ff',
+    Jack: '#2ea043',
+    Test2: '#f78166'
+  };
 
-    async function loadMessages() {
-      const { data, error } = await db
-        .from('messages')
-        .select('*')
-        .order('created_at', { ascending: true });
+  async function loadMessages() {
+    const { data, error } = await db
+      .from('messages')
+      .select('*')
+      .order('created_at', { ascending: true });
 
-      if (error) {
-        console.error(error);
-        return;
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    messagesBox.innerHTML = '';
+
+    const currentName = document.getElementById('name').value.trim();
+
+    data.forEach(m => {
+      const div = document.createElement('div');
+
+      if (m.name === currentName) {
+        div.className = 'message me';
+      } else {
+        div.className = 'message them';
       }
 
-      messagesBox.innerHTML = '';
+      const userColor = colorMap[m.name] || '#e6edf3';
+      div.style.borderLeft = `4px solid ${userColor}`;
 
-      const currentName = document.getElementById('name').value.trim();
+      div.innerHTML = `
+        <div class="msg-header">
+          <strong>${m.name}</strong>
+          <span class="timestamp">${new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+        </div>
+        <div class="msg-text">${m.text}</div>
+      `;
 
-      data.forEach(m => {
-        const div = document.createElement('div');
+      messagesBox.appendChild(div);
+    });
 
-        if (m.name === currentName) {
-          div.className = 'message me';
-        } else {
-          div.className = 'message them';
-        }
+    messagesBox.scrollTop = messagesBox.scrollHeight;
+  }
 
-        const userColor = colorMap[m.name] || '#e6edf3';
-        div
+  document.getElementById('chat-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = document.getElementById('name').value.trim();
+    const text = document.getElementById('text').value.trim();
+
+    if (!name || !text) return;
+
+    const { error } = await db.from('messages').insert({ name, text });
+    if (error) console.error(error);
+
+    document.getElementById('text').value = '';
+  });
+
+  loadMessages();
+
+  db.channel('messages')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, loadMessages)
+    .subscribe();
+</script>
