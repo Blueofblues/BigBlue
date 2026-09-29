@@ -13,13 +13,22 @@
       font-family: Arial, sans-serif;
     }
 
+    #topbar {
+      background: #0d1117;
+      padding: 15px;
+      text-align: center;
+      font-size: 24px;
+      color: #58a6ff;
+      border-bottom: 1px solid #30363d;
+    }
+
     #lounge {
       max-width: 600px;
       margin: 40px auto;
       padding: 20px;
       background: #161b22;
       border-radius: 10px;
-      box-shadow: 0 0 20px rgba(0,0,0,0.4);
+      box-shadow: 0 0 25px rgba(88,166,255,0.25);
     }
 
     h2 {
@@ -27,6 +36,13 @@
       text-align: center;
       font-size: 28px;
       color: #58a6ff;
+    }
+
+    #online {
+      text-align: center;
+      margin-bottom: 10px;
+      font-size: 14px;
+      color: #8b949e;
     }
 
     #messages {
@@ -44,6 +60,35 @@
       margin-bottom: 8px;
       background: #21262d;
       border-radius: 6px;
+      max-width: 80%;
+    }
+
+    .me {
+      background: #238636;
+      margin-left: auto;
+      text-align: right;
+    }
+
+    .them {
+      background: #21262d;
+      margin-right: auto;
+      text-align: left;
+    }
+
+    .msg-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      opacity: 0.8;
+    }
+
+    .timestamp {
+      font-size: 12px;
+      color: #8b949e;
+    }
+
+    .msg-text {
+      margin-top: 4px;
     }
 
     form {
@@ -78,8 +123,10 @@
 </head>
 
 <body>
+  <header id="topbar">BigBlue Lounge</header>
+
   <section id="lounge">
-    <h2>BigBlue Lounge</h2>
+    <div id="online">You are online</div>
 
     <div id="messages"></div>
 
@@ -99,6 +146,12 @@
     const db = createClient(SUPABASE_URL, SUPABASE_KEY);
     const messagesBox = document.getElementById('messages');
 
+    const colorMap = {
+      Jason: '#58a6ff',
+      Jack: '#2ea043',
+      Test2: '#f78166'
+    };
+
     async function loadMessages() {
       const { data, error } = await db
         .from('messages')
@@ -111,32 +164,17 @@
       }
 
       messagesBox.innerHTML = '';
+
+      const currentName = document.getElementById('name').value.trim();
+
       data.forEach(m => {
         const div = document.createElement('div');
-        div.className = 'message';
-        div.innerHTML = `<strong>${m.name}</strong>: ${m.text}`;
-        messagesBox.appendChild(div);
-      });
-    }
 
-    document.getElementById('chat-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const name = document.getElementById('name').value.trim();
-      const text = document.getElementById('text').value.trim();
+        if (m.name === currentName) {
+          div.className = 'message me';
+        } else {
+          div.className = 'message them';
+        }
 
-      if (!name || !text) return;
-
-      const { error } = await db.from('messages').insert({ name, text });
-      if (error) console.error(error);
-
-      document.getElementById('text').value = '';
-    });
-
-    loadMessages();
-
-    db.channel('messages')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, loadMessages)
-      .subscribe();
-  </script>
-</body>
-</html>
+        const userColor = colorMap[m.name] || '#e6edf3';
+        div
