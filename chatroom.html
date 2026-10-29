@@ -242,13 +242,25 @@
       nameInput.disabled = true;
     }
 
-    await db.from('messages').insert({
-      user_id: profile.user_id,
-      name,
-      text
-    });
+  const { data, error } = await db
+  .from('messages')
+  .insert({
+    user_id: profile.user_id,
+    name,
+    text
+  })
+  .select();
 
-    document.getElementById('text').value = '';
+if (error) {
+  console.error('MESSAGE ERROR:', error);
+  alert('Message failed: ' + error.message);
+  return;
+}
+
+console.log('MESSAGE SAVED:', data);
+
+document.getElementById('text').value = '';
+await loadMessages();
   });
 
   // 6. Initial load
